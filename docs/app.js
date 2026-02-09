@@ -1,10 +1,13 @@
-/* Mobile Scorecard – 18 holes, 6 players
-   Overlay is generated from a computed box_map based on slider calibration.
+/* Canvas Scorecard Board
+   - 18 holes, 6 players
+   - Uneven columns supported (rows uniform)
+   - Tap cell -> bottom controller sets score
+   - Draws scores onto canvas (authentic)
 */
 
-const PLAYERS = 4;
+const PLAYERS = 6;
 
-// Columns: 1-9, OUT, 10-18, IN, TOTAL  => 21 columns
+// Columns in order on the card
 const COLS = [
   ...Array.from({ length: 9 }, (_, i) => String(i + 1)),
   "OUT",
@@ -14,374 +17,405 @@ const COLS = [
   "HCP",
   "NET",
 ];
-const overlay = document.getElementById("overlay");
+
+// Keys to store values
+function cellKey(p, col) {
+  if (col === "OUT") return `p${p}_out`;
+  if (col === "IN") return `p${p}_in`;
+  if (col === "TOT") return `p${p}_tot`;
+  if (col === "HCP") return `p${p}_hcp`;
+  if (col === "NET") return `p${p}_net`;
+  return `p${p}_h${parseInt(col, 10)}`;
+}
+
+const LS_CAL = "cw_board_cal_v1";
+const LS_SCORES = "cw_board_scores_v1";
+
+const canvas = document.getElementById("board");
+const ctx = canvas.getContext("2d");
+
 const saveBtn = document.getElementById("saveBtn");
-const exportArea = document.getElementById("exportArea");
-const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
-const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-const settingsPanel = document.getElementById("settingsPanel");
+const calBtn = document.getElementById("calBtn");
+const calPanel = document.getElementById("calPanel");
+const calClose = document.getElementById("calClose");
+const calReset = document.getElementById("calReset");
+const calFinish = document.getElementById("calFinish");
+const calOut = document.getElementById("calOut");
+const calHint = document.getElementById("calHint");
 
-const toggleBoxesBtn = document.getElementById("toggleBoxesBtn");
-const copyBoxMapBtn = document.getElementById("copyBoxMapBtn");
-const resetBtn = document.getElementById("resetBtn");
-const boxMapOutput = document.getElementById("boxMapOutput");
+const selLabel = document.getElementById("selLabel");
+const selValue = document.getElementById("selValue");
+const nextBtn = document.getElementById("nextBtn");
+const backBtn = document.getElementById("backBtn");
 
-const sliders = {
-  startX: document.getElementById("startX"),
-  startY: document.getElementById("startY"),
-  cellW: document.getElementById("cellW"),
-  cellH: document.getElementById("cellH"),
-  colGap: document.getElementById("colGap"),
-  rowGap: document.getElementById("rowGap"),
-};
+const bg = new Image();
+bg.src = "scorecard.jpg";
 
-const sliderVals = {
-  startXVal: document.getElementById("startXVal"),
-  startYVal: document.getElementById("startYVal"),
-  cellWVal: document.getElementById("cellWVal"),
-  cellHVal: document.getElementById("cellHVal"),
-  colGapVal: document.getElementById("colGapVal"),
-  rowGapVal: document.getElementById("rowGapVal"),
-};
-
-const DEFAULTS = {
-  startX: 6.30,     // % left start of first column
-  startY: 36.50,    // % top start of first player row
-  cellH: 4.75,      // % height of score boxes
-  rowGap: 0.55,     // % gap between player rows
-
-  // Per-column widths (must match COLS length = 23)
-  // Order: 1..9, OUT, 10..18, IN, TOT, HCP, NET
-  colW: [
-    4.05,4.05,4.05,4.05,4.05,4.05,4.05,4.05,4.05, // 1-9
-    4.20,                                           // OUT
-    3.95,3.95,3.95,3.95,3.95,3.95,3.95,3.95,3.95, // 10-18
-    4.10,                                           // IN
-    4.10,                                           // TOT
-    3.20,                                           // HCP
-    3.20                                            // NET
-  ],
-
-  // Per-column gaps AFTER each column (length = 23)
-  // Last one can be 0.
-  colG: [
-    0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.60,  // after 1-9 (bigger before OUT area)
-    0.80,                                           // after OUT (bigger break between front/back)
-    0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.60,  // after 10-18 (bigger before IN/TOT)
-    0.45,                                           // after IN
-    0.55,                                           // after TOT (space before HCP/NET)
-    0.45,                                           // after HCP
-    0                                               // after NET
-  ]
-};
-
-
-// localStorage keys
-const LS_KEY_SETTINGS = "cw_scorecard_settings_v1";
-const LS_KEY_SCORES   = "cw_scorecard_scores_v1";
-const LS_KEY_BORDERS  = "cw_scorecard_borders_v1";
-
-let showBorders = (localStorage.getItem(LS_KEY_BORDERS) === "1");
-let settings = loadSettings();
 let scores = loadScores();
+let cal = loadCal();      // geometry calibration
+let boxes = [];           // computed rectangles in *canvas pixels*
 
-function loadSettings(){
-  try{
-    const raw = localStorage.getItem(LS_KEY_SETTINGS);
-    if(!raw) return { ...DEFAULTS };
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULTS, ...parsed };
-  }catch{
-    return { ...DEFAULTS };
+let selected = null;      // {p, col, idx} idx = column index
+
+// -------------------- Storage --------------------
+function loadScores() {
+  try {
+    const raw = localStorage.getItem(LS_SCORES);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const obj = {};
+  for (let p = 1; p <= PLAYERS; p++) {
+    for (let h = 1; h <= 18; h++) obj[`p${p}_h${h}`] = "";
+    obj[`p${p}_hcp`] = "";
+    obj[`p${p}_net`] = "";
   }
+  return obj;
 }
-function saveSettings(){
-  localStorage.setItem(LS_KEY_SETTINGS, JSON.stringify(settings));
-}
+function saveScores() { localStorage.setItem(LS_SCORES, JSON.stringify(scores)); }
 
-function loadScores(){
-  try{
-    const raw = localStorage.getItem(LS_KEY_SCORES);
-    if(!raw){
-      // init empty
-      const obj = {};
-      for(let p=1;p<=PLAYERS;p++){
-        for(let h=1;h<=18;h++){
-          obj[`p${p}_h${h}`] = "";
-        }
-      }
-      return obj;
+function loadCal() {
+  try {
+    const raw = localStorage.getItem(LS_CAL);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+function saveCal() { localStorage.setItem(LS_CAL, JSON.stringify(cal)); }
+
+// -------------------- Totals --------------------
+function recalcTotals() {
+  for (let p = 1; p <= PLAYERS; p++) {
+    let out = 0, inn = 0, anyOut = false, anyIn = false;
+    for (let h = 1; h <= 9; h++) {
+      const v = parseInt(scores[`p${p}_h${h}`] || "", 10);
+      if (!Number.isNaN(v)) { out += v; anyOut = true; }
     }
-    return JSON.parse(raw);
-  }catch{
-    return {};
+    for (let h = 10; h <= 18; h++) {
+      const v = parseInt(scores[`p${p}_h${h}`] || "", 10);
+      if (!Number.isNaN(v)) { inn += v; anyIn = true; }
+    }
+    scores[`p${p}_out`] = anyOut ? String(out) : "";
+    scores[`p${p}_in`] = anyIn ? String(inn) : "";
+    scores[`p${p}_tot`] = (anyOut || anyIn) ? String((anyOut?out:0) + (anyIn?inn:0)) : "";
   }
 }
-function saveScores(){
-  localStorage.setItem(LS_KEY_SCORES, JSON.stringify(scores));
-}
 
-function pct(n){ return `${n}%`; }
+// -------------------- Geometry (uses calibration) --------------------
+/*
+  Calibration we store in % relative to the drawn canvas:
+  cal = {
+    startX, startY, rowH, rowGap,
+    colW: [23 widths], colG: [23 gaps]
+  }
+*/
+function computeBoxes() {
+  boxes = [];
+  if (!cal) return;
 
-function computeBoxMap(){
-  const map = [];
-  const { startX, startY, cellH, rowGap, colW, colG } = settings;
-
-  // precompute x positions for every column
+  // Precompute X positions
   const xPos = [];
-  let x = startX;
+  let x = cal.startX;
   for (let i = 0; i < COLS.length; i++) {
     xPos[i] = x;
-    x += (colW[i] ?? 0) + (colG[i] ?? 0);
+    x += cal.colW[i] + cal.colG[i];
   }
 
   for (let p = 1; p <= PLAYERS; p++) {
-    const top = startY + (p - 1) * (cellH + rowGap);
-
+    const top = cal.startY + (p - 1) * (cal.rowH + cal.rowGap);
     for (let i = 0; i < COLS.length; i++) {
-      const colName = COLS[i];
-
-      let key = "";
-      if (colName === "OUT") key = `p${p}_out`;
-      else if (colName === "IN") key = `p${p}_in`;
-      else if (colName === "TOT") key = `p${p}_tot`;
-      else if (colName === "HCP") key = `p${p}_hcp`;
-      else if (colName === "NET") key = `p${p}_net`;
-      else key = `p${p}_h${parseInt(colName, 10)}`;
-
-      map.push({
-        key,
-        player: p,
-        col: colName,
-        left: xPos[i],
-        top,
-        width: colW[i],
-        height: cellH
+      boxes.push({
+        p, col: COLS[i], idx: i,
+        x: xPos[i], y: top,
+        w: cal.colW[i], h: cal.rowH
       });
     }
   }
-
-  return map;
 }
 
-
-      // Keys:
-      // - hole fields: p{p}_h{n}
-      // - totals: p{p}_out, p{p}_in, p{p}_tot
-      let key = "";
-      if(colName === "OUT") key = `p${p}_out`;
-      else if(colName === "IN") key = `p${p}_in`;
-      else if(colName === "TOT") key = `p${p}_tot`;
-      else {
-        const h = parseInt(colName, 10);
-        key = `p${p}_h${h}`;
-      }
-
-      map.push({
-        key,
-        player: p,
-        col: colName,
-        left, top,
-        width: cellW,
-        height: cellH
-      });
-    }
+// Hit test: tap -> box
+function findBoxAt(px, py) {
+  for (const b of boxes) {
+    if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) return b;
   }
-  return map;
+  return null;
 }
 
-function render(){
-  overlay.innerHTML = "";
-  const boxMap = computeBoxMap();
+// -------------------- Drawing --------------------
+function fitCanvasToImage() {
+  // Canvas internal size matches image pixel size for crisp drawing
+  canvas.width = bg.naturalWidth || 1200;
+  canvas.height = bg.naturalHeight || 800;
+}
 
-  // Build inputs
-  for(const box of boxMap){
-    const div = document.createElement("div");
-    div.className = "field" +
-      ((box.col === "OUT" || box.col === "IN" || box.col === "TOT") ? " total" : "") +
-      (showBorders ? " show-border" : "");
-    div.style.left = pct(box.left);
-    div.style.top = pct(box.top);
-    div.style.width = pct(box.width);
-    div.style.height = pct(box.height);
+function draw() {
+  if (!bg.complete) return;
+  fitCanvasToImage();
 
-    const input = document.createElement("input");
-    input.inputMode = "numeric";
-    input.pattern = "[0-9]*";
-    input.autocomplete = "off";
-    input.spellcheck = false;
+  // Background
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
 
-    // totals are computed; lock input
-    const isTotal = (box.col === "OUT" || box.col === "IN" || box.col === "TOT");
-    input.readOnly = isTotal;
-
-    // value
-    if(isTotal){
-      input.value = String(calcTotal(box.key) ?? "");
-    }else{
-      input.value = scores[box.key] ?? "";
-    }
-
-    input.addEventListener("input", (e)=>{
-      const val = (e.target.value || "").replace(/[^\d]/g, "").slice(0, 2); // keep 0-99
-      e.target.value = val;
-      scores[box.key] = val;
-      saveScores();
-      // re-render totals
-      refreshTotalsOnly();
-    });
-
-    div.appendChild(input);
-    overlay.appendChild(div);
+  if (!cal) {
+    // hint text
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.font = "700 28px -apple-system, system-ui, Segoe UI, Roboto, Arial";
+    ctx.fillText("Tap Calibrate to map the boxes.", 40, 60);
+    ctx.restore();
+    return;
   }
 
-  // update textarea output
-  boxMapOutput.value = JSON.stringify({
-    version: 1,
-    players: PLAYERS,
-    columns: COLS,
-    settings,
-    box_map: boxMap
-  }, null, 2);
+  // Draw scores
+  recalcTotals();
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#0b0f14";
+  ctx.font = "800 32px -apple-system, system-ui, Segoe UI, Roboto, Arial";
 
-  updateSliderLabels();
+  for (const b of boxes) {
+    const key = cellKey(b.p, b.col);
+    const val = scores[key] ?? "";
+    if (!val) continue;
+
+    // Slightly smaller in totals/meta columns
+    const isSmall = (b.col === "OUT" || b.col === "IN" || b.col === "TOT" || b.col === "HCP" || b.col === "NET");
+    ctx.font = isSmall
+      ? "800 28px -apple-system, system-ui, Segoe UI, Roboto, Arial"
+      : "800 32px -apple-system, system-ui, Segoe UI, Roboto, Arial";
+
+    ctx.fillText(val, b.x + b.w / 2, b.y + b.h / 2);
+  }
+  ctx.restore();
+
+  // Highlight selection
+  if (selected) {
+    const b = boxes.find(z => z.p === selected.p && z.idx === selected.idx);
+    if (b) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 220, 255, .95)";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(b.x + 2, b.y + 2, b.w - 4, b.h - 4);
+      ctx.restore();
+    }
+  }
 }
 
-function refreshTotalsOnly(){
-  // Update all total inputs without full redraw
-  const totalKeys = [];
-  for(let p=1;p<=PLAYERS;p++){
-    totalKeys.push(`p${p}_out`, `p${p}_in`, `p${p}_tot`);
+// -------------------- Interaction --------------------
+function setSelected(b) {
+  selected = b ? { p: b.p, col: b.col, idx: b.idx } : null;
+  if (!selected) {
+    selLabel.textContent = "Tap a box to start";
+    selValue.textContent = "";
+  } else {
+    const key = cellKey(selected.p, selected.col);
+    selLabel.textContent = `P${selected.p} • ${selected.col}`;
+    selValue.textContent = scores[key] ? `= ${scores[key]}` : "";
+  }
+  draw();
+}
+
+function moveSelection(delta) {
+  if (!selected) return;
+  // Move across columns (feels like filling a row)
+  let idx = selected.idx + delta;
+  let p = selected.p;
+  if (idx < 0) { idx = COLS.length - 1; p = Math.max(1, p - 1); }
+  if (idx >= COLS.length) { idx = 0; p = Math.min(PLAYERS, p + 1); }
+  const b = boxes.find(z => z.p === p && z.idx === idx);
+  if (b) setSelected(b);
+}
+
+function applySet(val) {
+  if (!selected) return;
+  const col = selected.col;
+  // Keep totals read-only
+  if (col === "OUT" || col === "IN" || col === "TOT") return;
+
+  const key = cellKey(selected.p, col);
+  scores[key] = String(val);
+  saveScores();
+  setSelected(boxes.find(z => z.p === selected.p && z.idx === selected.idx));
+}
+
+function applyOp(op) {
+  if (!selected) return;
+  const col = selected.col;
+  if (col === "OUT" || col === "IN" || col === "TOT") return;
+
+  const key = cellKey(selected.p, col);
+  if (op === "clear") {
+    scores[key] = "";
+    saveScores();
+    setSelected(boxes.find(z => z.p === selected.p && z.idx === selected.idx));
+    return;
   }
 
-  // overlay children are in boxMap order; easiest: just re-render.
-  // (Still fast on phones.)
-  render();
+  const cur = parseInt(scores[key] || "0", 10);
+  const next = op === "+" ? cur + 1 : Math.max(0, cur - 1);
+  scores[key] = String(next);
+  saveScores();
+  setSelected(boxes.find(z => z.p === selected.p && z.idx === selected.idx));
 }
 
-function calcTotal(key){
-  // key format is p{p}_out or p{p}_in or p{p}_tot
-  const m = key.match(/^p(\d+)_(out|in|tot)$/);
-  if(!m) return null;
-  const p = parseInt(m[1], 10);
-  const which = m[2];
+canvas.addEventListener("click", (e) => {
+  if (!cal) return;
+  const rect = canvas.getBoundingClientRect();
+  // convert client coords to canvas coords
+  const px = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const b = findBoxAt(px, py);
+  if (b) setSelected(b);
+});
 
-  const sum = (from, to) => {
-    let s = 0;
-    let any = false;
-    for(let h=from; h<=to; h++){
-      const v = parseInt(scores[`p${p}_h${h}`] || "", 10);
-      if(!Number.isNaN(v)){
-        s += v; any = true;
-      }
+document.querySelectorAll(".key").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const set = btn.getAttribute("data-set");
+    const op = btn.getAttribute("data-op");
+    if (set) applySet(parseInt(set, 10));
+    if (op) applyOp(op);
+  });
+});
+
+nextBtn.addEventListener("click", () => moveSelection(+1));
+backBtn.addEventListener("click", () => moveSelection(-1));
+
+// -------------------- Save Image --------------------
+saveBtn.addEventListener("click", () => {
+  // Export the current canvas to a PNG and open it
+  try {
+    draw();
+    const url = canvas.toDataURL("image/png");
+    const w = window.open();
+    if (w) w.document.write(`<img src="${url}" style="width:100%;height:auto;"/>`);
+  } catch {
+    alert("Save failed. Try again.");
+  }
+});
+
+// -------------------- Calibration --------------------
+/*
+  Calibration captures:
+  1) TL of P1/H1 (x0,y0)
+  2) TR of P1/NET (x1,y0)
+  3) BL of P6 row (x0,y6bottom)
+  4) vertical boundaries taps (x positions) to compute widths+gaps
+*/
+
+let calMode = false;
+let calStep = 0;
+let calPts = { x0:0,y0:0,x1:0,y6:0, boundaries:[] };
+
+function setCalHint(text) { calHint.textContent = text; }
+
+function resetCalibration() {
+  calStep = 0;
+  calPts = { x0:0,y0:0,x1:0,y6:0, boundaries:[] };
+  calFinish.disabled = true;
+  calOut.value = "";
+  setCalHint("Step 1: Tap top-left of Player 1 / Hole 1 box.");
+  draw();
+}
+
+function openCal() {
+  calMode = true;
+  calPanel.classList.remove("hidden");
+  resetCalibration();
+}
+
+function closeCal() {
+  calMode = false;
+  calPanel.classList.add("hidden");
+}
+
+calBtn.addEventListener("click", openCal);
+calClose.addEventListener("click", closeCal);
+calReset.addEventListener("click", resetCalibration);
+
+canvas.addEventListener("click", (e) => {
+  if (!calMode) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+  // Steps 0-2 capture anchor points
+  if (calStep === 0) { calPts.x0 = px; calPts.y0 = py; calStep = 1; setCalHint("Step 2: Tap top-right of Player 1 / NET box (far right)."); }
+  else if (calStep === 1) { calPts.x1 = px; calStep = 2; setCalHint("Step 3: Tap bottom-left of Player 6 row (same left edge)."); }
+  else if (calStep === 2) { calPts.y6 = py; calStep = 3; setCalHint("Step 4: Tap vertical boundaries between columns (top row), starting after Hole 1, then after Hole 2... all the way to after NET."); }
+  else {
+    // collect boundary x's
+    calPts.boundaries.push(px);
+    // Need 22 boundaries for 23 columns (after each column except last)
+    if (calPts.boundaries.length >= COLS.length - 1) {
+      calFinish.disabled = false;
+      setCalHint("All boundaries captured. Tap Finish.");
+    } else {
+      setCalHint(`Captured boundary ${calPts.boundaries.length}/${COLS.length - 1}. Keep tapping next boundary.`);
     }
-    return any ? s : "";
+  }
+
+  calOut.value = JSON.stringify({ step: calStep, points: calPts }, null, 2);
+});
+
+calFinish.addEventListener("click", () => {
+  if (calPts.boundaries.length < COLS.length - 1) return;
+
+  // Sort boundaries left->right (in case)
+  const bounds = [...calPts.boundaries].sort((a,b)=>a-b);
+
+  // Build col widths + gaps:
+  // We treat boundaries as the RIGHT edge of each column.
+  // Left edge of first column is x0; right edge of last column is x1.
+  // So we create an edges array: [x0, b1, b2, ... b22, x1]
+  const edges = [calPts.x0, ...bounds, calPts.x1];
+
+  const colW = [];
+  const colG = [];
+  for (let i = 0; i < COLS.length; i++) {
+    const left = edges[i];
+    const right = edges[i+1];
+    colW.push(Math.max(1, right - left));
+    // gap unknown separately; set to 0 (we already captured true right edges)
+    colG.push(0);
+  }
+
+  // Row geometry from y0 and y6:
+  // y6 is bottom-left of row 6 box region. We assume 6 rows same height with uniform gaps.
+  // We cannot uniquely solve rowGap without another tap, so we assume rowGap=0
+  // and the row height is total/6. (Works well if the rows are tight.)
+  const totalH = Math.max(10, calPts.y6 - calPts.y0);
+  const rowH = totalH / PLAYERS;
+  const rowGap = 0;
+
+  cal = {
+    startX: calPts.x0,
+    startY: calPts.y0,
+    rowH,
+    rowGap,
+    colW,
+    colG
   };
 
-  const out = sum(1,9);
-  const inn = sum(10,18);
+  saveCal();
+  computeBoxes();
+  closeCal();
+  setSelected(null);
 
-  if(which === "out") return out;
-  if(which === "in") return inn;
+  // Show calibration JSON for your records
+  calOut.value = JSON.stringify(cal, null, 2);
+  draw();
+});
 
-  // tot
-  if(out === "" && inn === "") return "";
-  return (out || 0) + (inn || 0);
+// -------------------- Boot --------------------
+bg.onload = () => {
+  // If we have calibration, compute boxes
+  if (cal) computeBoxes();
+  draw();
+};
+
+// If image cached
+if (bg.complete) {
+  if (cal) computeBoxes();
+  draw();
 }
-
-function updateSliderLabels(){
-  sliderVals.startXVal.textContent = settings.startX.toFixed(2) + "%";
-  sliderVals.startYVal.textContent = settings.startY.toFixed(2) + "%";
-  sliderVals.cellWVal.textContent  = settings.cellW.toFixed(2) + "%";
-  sliderVals.cellHVal.textContent  = settings.cellH.toFixed(2) + "%";
-  sliderVals.colGapVal.textContent = settings.colGap.toFixed(2) + "%";
-  sliderVals.rowGapVal.textContent = settings.rowGap.toFixed(2) + "%";
-}
-
-function initSliders(){
-  // Set initial slider values + listeners
-  sliders.startX.value = settings.startX;
-  sliders.startY.value = settings.startY;
-  sliders.cellW.value  = settings.cellW;
-  sliders.cellH.value  = settings.cellH;
-  sliders.colGap.value = settings.colGap;
-  sliders.rowGap.value = settings.rowGap;
-
-  for(const [k, el] of Object.entries(sliders)){
-    el.addEventListener("input", ()=>{
-      settings[k] = parseFloat(el.value);
-      saveSettings();
-      render();
-    });
-  }
-}
-
-toggleSettingsBtn.addEventListener("click", ()=>{
-  settingsPanel.classList.toggle("hidden");
-});
-closeSettingsBtn.addEventListener("click", ()=>{
-  settingsPanel.classList.add("hidden");
-});
-
-toggleBoxesBtn.addEventListener("click", ()=>{
-  showBorders = !showBorders;
-  localStorage.setItem(LS_KEY_BORDERS, showBorders ? "1" : "0");
-  render();
-});
-
-copyBoxMapBtn.addEventListener("click", async ()=>{
-  try{
-    await navigator.clipboard.writeText(boxMapOutput.value);
-    alert("box_map JSON copied to clipboard ✅");
-  }catch{
-    // fallback: select text
-    boxMapOutput.focus();
-    boxMapOutput.select();
-    alert("Select + Copy the JSON in the box (clipboard blocked).");
-  }
-});
-
-resetBtn.addEventListener("click", ()=>{
-  settings = { ...DEFAULTS };
-  saveSettings();
-  initSliders();
-  render();
-});
-
-saveBtn.addEventListener("click", async ()=>{
-  // Create a “flat” image of background + current overlay numbers.
-  // iPhone flow: it opens the image -> Share -> Save Image
-  try{
-    // Temporarily force borders off in export (clean)
-    const prevBorders = showBorders;
-    showBorders = false;
-    render();
-
-    const canvas = await html2canvas(document.getElementById("scorecardStage"), {
-      backgroundColor: null,
-      scale: 2
-    });
-
-    // Restore borders
-    showBorders = prevBorders;
-    render();
-
-    canvas.toBlob((blob)=>{
-      if(!blob){
-        alert("Could not generate image.");
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      // User: Share -> Save Image
-    }, "image/png");
-  }catch(e){
-    console.error(e);
-    alert("Save failed. Try again (or refresh).");
-  }
-});
-
-(function boot(){
-  initSliders();
-  render();
-})();
