@@ -101,12 +101,30 @@ function computeBoxes(){
   boxes = [];
   if(!cal) return;
 
+  // Precompute X positions for uneven columns
   const xPos = [];
   let x = cal.startX;
   for(let i=0;i<COLS.length;i++){
     xPos[i] = x;
     x += cal.colW[i] + cal.colG[i];
   }
+
+  // Use explicit row Y positions (Player 5 is separated)
+  for(let p=1; p<=PLAYERS; p++){
+    const top = cal.rowY[p-1];   // ← KEY CHANGE
+    for(let i=0;i<COLS.length;i++){
+      boxes.push({
+        p,
+        idx: i,
+        col: COLS[i],
+        x: xPos[i],
+        y: top,
+        w: cal.colW[i],
+        h: cal.rowH
+      });
+    }
+  }
+}
 
   for(let p=1;p<=PLAYERS;p++){
     const top = cal.startY + (p-1)*(cal.rowH + cal.rowGap);
