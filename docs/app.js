@@ -10,9 +10,10 @@ const COLS = [
   "OUT",
   ...Array.from({ length: 9 }, (_, i) => String(i + 10)),
   "IN",
-  "TOT"
+  "TOT",
+  "HCP",
+  "NET",
 ];
-
 const overlay = document.getElementById("overlay");
 const saveBtn = document.getElementById("saveBtn");
 const exportArea = document.getElementById("exportArea");
@@ -44,14 +45,36 @@ const sliderVals = {
 };
 
 const DEFAULTS = {
-  // These are starter guesses. You will dial them in using Align sliders.
-  startX: 6.30,   // %
-  startY: 36.50,  // %
-  cellW: 4.05,    // %
-  cellH: 4.75,    // %
-  colGap: 0.35,   // %
-  rowGap: 0.55,   // %
+  startX: 6.30,     // % left start of first column
+  startY: 36.50,    // % top start of first player row
+  cellH: 4.75,      // % height of score boxes
+  rowGap: 0.55,     // % gap between player rows
+
+  // Per-column widths (must match COLS length = 23)
+  // Order: 1..9, OUT, 10..18, IN, TOT, HCP, NET
+  colW: [
+    4.05,4.05,4.05,4.05,4.05,4.05,4.05,4.05,4.05, // 1-9
+    4.20,                                           // OUT
+    3.95,3.95,3.95,3.95,3.95,3.95,3.95,3.95,3.95, // 10-18
+    4.10,                                           // IN
+    4.10,                                           // TOT
+    3.20,                                           // HCP
+    3.20                                            // NET
+  ],
+
+  // Per-column gaps AFTER each column (length = 23)
+  // Last one can be 0.
+  colG: [
+    0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.60,  // after 1-9 (bigger before OUT area)
+    0.80,                                           // after OUT (bigger break between front/back)
+    0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.35,0.60,  // after 10-18 (bigger before IN/TOT)
+    0.45,                                           // after IN
+    0.55,                                           // after TOT (space before HCP/NET)
+    0.45,                                           // after HCP
+    0                                               // after NET
+  ]
 };
+
 
 // localStorage keys
 const LS_KEY_SETTINGS = "cw_scorecard_settings_v1";
@@ -101,18 +124,46 @@ function saveScores(){
 function pct(n){ return `${n}%`; }
 
 function computeBoxMap(){
-  // Returns boxes in percentage units relative to stage.
-  // 6 rows (players), 21 cols (1-9,OUT,10-18,IN,TOT)
   const map = [];
+  const { startX, startY, cellH, rowGap, colW, colG } = settings;
 
-  const { startX, startY, cellW, cellH, colGap, rowGap } = settings;
+  // precompute x positions for every column
+  const xPos = [];
+  let x = startX;
+  for (let i = 0; i < COLS.length; i++) {
+    xPos[i] = x;
+    x += (colW[i] ?? 0) + (colG[i] ?? 0);
+  }
 
-  for(let p=1; p<=PLAYERS; p++){
-    for(let c=0; c<COLS.length; c++){
-      const colName = COLS[c];
+  for (let p = 1; p <= PLAYERS; p++) {
+    const top = startY + (p - 1) * (cellH + rowGap);
 
-      const left = startX + c * (cellW + colGap);
-      const top  = startY + (p-1) * (cellH + rowGap);
+    for (let i = 0; i < COLS.length; i++) {
+      const colName = COLS[i];
+
+      let key = "";
+      if (colName === "OUT") key = `p${p}_out`;
+      else if (colName === "IN") key = `p${p}_in`;
+      else if (colName === "TOT") key = `p${p}_tot`;
+      else if (colName === "HCP") key = `p${p}_hcp`;
+      else if (colName === "NET") key = `p${p}_net`;
+      else key = `p${p}_h${parseInt(colName, 10)}`;
+
+      map.push({
+        key,
+        player: p,
+        col: colName,
+        left: xPos[i],
+        top,
+        width: colW[i],
+        height: cellH
+      });
+    }
+  }
+
+  return map;
+}
+
 
       // Keys:
       // - hole fields: p{p}_h{n}
