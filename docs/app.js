@@ -1,4 +1,4 @@
-const PLAYERS = 6;
+const PLAYERS = 5;
 
 // Column order on the card
 const COLS = [
