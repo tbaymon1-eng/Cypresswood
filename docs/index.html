@@ -3,96 +3,86 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Cypresswood – Mobile Scorecard</title>
+  <title>Scorecard Board</title>
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- html2canvas for "Save as Image" -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar__left">
+    <div>
       <div class="title">Scorecard</div>
-      <div class="subtitle">18 holes • 6 players • gross</div>
+      <div class="subtitle">18 holes • 6 players • gross • tap-to-play</div>
     </div>
-    <div class="topbar__right">
-      <button id="toggleSettingsBtn" class="btn btn--ghost">Align</button>
+    <div class="actions">
+      <button id="calBtn" class="btn btn--ghost">Calibrate</button>
       <button id="saveBtn" class="btn btn--primary">Save Image</button>
     </div>
   </header>
 
   <main class="wrap">
-    <!-- This is the export area (background image + overlay values) -->
-    <section id="exportArea" class="card">
-      <div id="scorecardStage" class="stage">
-        <img id="bg" class="bg" src="scorecard.jpg" alt="Scorecard background" />
-        <!-- Inputs overlay -->
-        <div id="overlay" class="overlay" aria-label="Score inputs overlay"></div>
+    <section class="card">
+      <div class="stage">
+        <canvas id="board"></canvas>
       </div>
     </section>
 
-    <!-- Settings / alignment panel -->
-    <section id="settingsPanel" class="settings hidden">
-      <div class="settings__header">
+    <!-- Calibration overlay -->
+    <section id="calPanel" class="cal hidden">
+      <div class="cal__header">
         <div>
-          <div class="settings__title">Alignment</div>
-          <div class="settings__hint">
-            Use sliders to line up the tap boxes exactly on the blank grid.
-          </div>
+          <div class="cal__title">Calibration Mode</div>
+          <div id="calHint" class="cal__hint"></div>
         </div>
-        <button id="closeSettingsBtn" class="btn btn--ghost">Close</button>
+        <button id="calClose" class="btn btn--ghost">Close</button>
       </div>
 
-      <div class="grid2">
-        <div class="control">
-          <label>Grid Start X (%)</label>
-          <input id="startX" type="range" min="0" max="100" step="0.05" />
-          <div class="val" id="startXVal"></div>
+      <div class="cal__body">
+        <ol class="cal__steps">
+          <li>Tap <b>Top-Left</b> of Player 1 / Hole 1 box.</li>
+          <li>Tap <b>Top-Right</b> of Player 1 / NET box (far right of score row).</li>
+          <li>Tap <b>Bottom-Left</b> of Player 6 row (same left edge as step 1).</li>
+          <li>Now tap the <b>vertical boundaries</b> between columns (top row), in this order:
+            <div class="pillrow">
+              <span class="pill">after 1</span><span class="pill">after 2</span><span class="pill">…</span>
+              <span class="pill">after 9</span><span class="pill">after OUT</span>
+              <span class="pill">after 18</span><span class="pill">after IN</span>
+              <span class="pill">after TOT</span><span class="pill">after HCP</span><span class="pill">after NET</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="cal__buttons">
+          <button id="calReset" class="btn">Reset Calibration</button>
+          <button id="calFinish" class="btn btn--primary" disabled>Finish</button>
         </div>
 
-        <div class="control">
-          <label>Grid Start Y (%)</label>
-          <input id="startY" type="range" min="0" max="100" step="0.05" />
-          <div class="val" id="startYVal"></div>
-        </div>
-
-        <div class="control">
-          <label>Cell Width (%)</label>
-          <input id="cellW" type="range" min="0.5" max="20" step="0.05" />
-          <div class="val" id="cellWVal"></div>
-        </div>
-
-        <div class="control">
-          <label>Cell Height (%)</label>
-          <input id="cellH" type="range" min="0.5" max="20" step="0.05" />
-          <div class="val" id="cellHVal"></div>
-        </div>
-
-        <div class="control">
-          <label>Column Gap (%)</label>
-          <input id="colGap" type="range" min="0" max="5" step="0.02" />
-          <div class="val" id="colGapVal"></div>
-        </div>
-
-        <div class="control">
-          <label>Row Gap (%)</label>
-          <input id="rowGap" type="range" min="0" max="5" step="0.02" />
-          <div class="val" id="rowGapVal"></div>
-        </div>
+        <textarea id="calOut" class="cal__out" readonly></textarea>
       </div>
-
-      <div class="settings__footer">
-        <button id="toggleBoxesBtn" class="btn btn--ghost">Toggle Box Borders</button>
-        <button id="copyBoxMapBtn" class="btn btn--ghost">Copy box_map JSON</button>
-        <button id="resetBtn" class="btn">Reset</button>
-      </div>
-
-      <textarea id="boxMapOutput" class="boxmap" readonly></textarea>
     </section>
   </main>
 
-  <footer class="footer">
-    Tip: After saving, tap the image → Share → <b>Save Image</b> (Photos).
+  <!-- Controller -->
+  <footer class="controller">
+    <div class="sel">
+      <span id="selLabel">Tap a box to start</span>
+      <span id="selValue"></span>
+    </div>
+
+    <div class="keys">
+      <button class="key" data-set="3">3</button>
+      <button class="key" data-set="4">4</button>
+      <button class="key" data-set="5">5</button>
+      <button class="key" data-set="6">6</button>
+      <button class="key" data-set="7">7</button>
+      <button class="key" data-set="8">8</button>
+      <button class="key" data-set="9">9</button>
+      <button class="key" data-op="-">−</button>
+      <button class="key" data-op="+">+</button>
+      <button class="key key--ghost" data-op="clear">Clear</button>
+      <button class="key key--ghost" id="backBtn">Back</button>
+      <button class="key key--primary" id="nextBtn">Next</button>
+    </div>
+
+    <div class="tip">Save → Share → <b>Save Image</b> (Photos)</div>
   </footer>
 
   <script src="app.js"></script>
