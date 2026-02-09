@@ -2,7 +2,7 @@
    Overlay is generated from a computed box_map based on slider calibration.
 */
 
-const PLAYERS = 6;
+const PLAYERS = 4;
 
 // Columns: 1-9, OUT, 10-18, IN, TOTAL  => 21 columns
 const COLS = [
