@@ -273,7 +273,14 @@ saveBtn.addEventListener("click",()=>{
 // ---------------- Calibration ----------------
 let calMode=false;
 let step=0;
-let pts={ x0:0,y0:0,y1:0,x1:0,y6:0, bounds:[] };
+let pts = {
+  startX:0,
+  startY:0,
+  rowY:[],     // NEW
+  rowH:0,
+  x1:0,
+  bounds:[]
+};
 
 function hint(t){ calHint.textContent=t; }
 function resetCal(){
