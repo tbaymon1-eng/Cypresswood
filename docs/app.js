@@ -237,6 +237,61 @@ function applyOp(op){
 
 // Tap board
 canvas.addEventListener("click",(e)=>{
+  if(!calMode) return;
+
+  const r = canvas.getBoundingClientRect();
+  const px = (e.clientX-r.left)*(canvas.width/r.width);
+  const py = (e.clientY-r.top)*(canvas.height/r.height);
+
+  if(step === 0){
+    pts.startX = px;
+    pts.startY = py;
+    pts.rowY.push(py);
+    step = 1;
+    hint("Tap Player 2 / Hole 1 TOP-LEFT.");
+  }
+  else if(step === 1){
+    pts.rowY.push(py);
+    step = 2;
+    hint("Tap Player 3 / Hole 1 TOP-LEFT.");
+  }
+  else if(step === 2){
+    pts.rowY.push(py);
+    step = 3;
+    hint("Tap Player 4 / Hole 1 TOP-LEFT.");
+  }
+  else if(step === 3){
+    pts.rowY.push(py);
+    step = 4;
+    hint("Tap Player 5 / Hole 1 TOP-LEFT (below Handicap row).");
+  }
+  else if(step === 4){
+    pts.rowY.push(py);
+    step = 5;
+    hint("Tap Player 1 / Hole 1 BOTTOM-LEFT (to set row height).");
+  }
+  else if(step === 5){
+    pts.rowH = Math.max(1, py - pts.startY);
+    step = 6;
+    hint("Tap Player 1 / NET TOP-RIGHT (far right).");
+  }
+  else if(step === 6){
+    pts.x1 = px;
+    step = 7;
+    hint("Now tap vertical boundaries between columns (22 taps total).");
+  }
+  else {
+    pts.bounds.push(px);
+    if(pts.bounds.length >= COLS.length - 1){
+      calFinish.disabled=false;
+      hint("All boundaries captured. Tap Finish.");
+    } else {
+      hint(`Boundary ${pts.bounds.length}/${COLS.length-1} captured. Keep going.`);
+    }
+  }
+
+  calOut.value = JSON.stringify({step, pts}, null, 2);
+});
   if(calMode) return; // calibration handler below
   if(!cal) return;
   const r = canvas.getBoundingClientRect();
