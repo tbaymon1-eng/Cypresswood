@@ -3,115 +3,77 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Cypresswood Scorecard</title>
+  <title>Scorecard</title>
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar__left">
-      <div class="title">Cypresswood • The Tradition Course</div>
-      <div class="subtitle">18 holes • 6 players • gross</div>
+    <div>
+      <div class="title">Scorecard</div>
+      <div class="subtitle">18 holes • 6 players • tap-to-score</div>
     </div>
-    <div class="topbar__right">
-      <button id="clearBtn" class="btn btn--ghost">Clear</button>
+    <div class="actions">
+      <button id="calBtn" class="btn btn--ghost">Calibrate</button>
       <button id="saveBtn" class="btn btn--primary">Save Image</button>
     </div>
   </header>
 
   <main class="wrap">
-    <!-- EXPORT AREA (this is what we turn into an image) -->
-    <section id="exportArea" class="sheet">
-      <div class="sheet__header">
-        <div class="brand">
-          <div class="brand__logo">CYPRESSWOOD</div>
-          <div class="brand__sub">The Tradition Course</div>
-        </div>
+    <section class="card">
+      <div class="stage">
+        <canvas id="board"></canvas>
+      </div>
+    </section>
 
-        <div class="meta">
-          <div class="meta__line"><b>21602 Cypresswood Drive</b> • Spring, TX 77373</div>
-          <div class="meta__line">281-821-6300 • cypresswood.com</div>
-          <div class="meta__line"><b>Keith Foster</b> • Course Architect</div>
+    <section id="calPanel" class="cal hidden">
+      <div class="cal__header">
+        <div>
+          <div class="cal__title">Calibration Mode</div>
+          <div id="calHint" class="cal__hint"></div>
         </div>
-
-        <div class="rating">
-          <div class="rating__title">Course Rating / Slope</div>
-          <div class="rating__cols">
-            <div>
-              <div class="rating__head">Men’s</div>
-              <div>Black: 74.6 / 140</div>
-              <div>Blue: 72.0 / 135</div>
-              <div>White: 69.7 / 130</div>
-              <div>Silver: 66.7 / 117</div>
-            </div>
-            <div>
-              <div class="rating__head">Women’s</div>
-              <div>White: 73.5 / 135</div>
-              <div>Silver: 71.6 / 124</div>
-              <div>Copper: 67.8 / 117</div>
-            </div>
-          </div>
-        </div>
+        <button id="calClose" class="btn btn--ghost">Close</button>
       </div>
 
-      <!-- HOLE HEADER -->
-      <div class="table-wrap">
-        <table class="scorecard" id="scorecardTable">
-          <thead>
-            <tr>
-              <th class="stub">Hole</th>
-              <!-- 1..9 -->
-              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th>
-              <th class="totcol">Out</th>
-              <!-- 10..18 -->
-              <th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th>
-              <th class="totcol">In</th>
-              <th class="totcol">Tot</th>
-              <th class="totcol">Hcp</th>
-              <th class="totcol">Net</th>
-            </tr>
-          </thead>
+      <ol class="cal__steps">
+        <li>Tap <b>Top-Left</b> of Player 1 / Hole 1 box.</li>
+        <li>Tap <b>Top-Left</b> of Player 2 / Hole 1 box.</li>
+        <li>Tap <b>Top-Right</b> of Player 1 / NET box (far right).</li>
+        <li>Tap <b>Bottom-Left</b> of Player 6 / Hole 1 box.</li>
+        <li>Now tap the <b>vertical boundaries</b> between columns along the top score row:
+          after Hole 1, after Hole 2, … after NET (22 boundaries total).</li>
+      </ol>
 
-          <tbody id="playersBody">
-            <!-- app.js will render 6 player rows -->
-          </tbody>
-
-          <tbody>
-            <tr class="parrow">
-              <td class="stub">Par:</td>
-              <td>4</td><td>4</td><td>3</td><td>4</td><td>4</td><td>5</td><td>3</td><td>5</td><td>3</td>
-              <td class="totcol">36</td>
-              <td>4</td><td>4</td><td>3</td><td>5</td><td>4</td><td>6</td><td>4</td><td>6</td><td>5</td>
-              <td class="totcol">36</td>
-              <td class="totcol">72</td>
-              <td class="totcol"></td>
-              <td class="totcol"></td>
-            </tr>
-
-            <tr class="hcprow">
-              <td class="stub">Handicap</td>
-              <td>7</td><td>17</td><td>11</td><td>3</td><td>1</td><td>13</td><td>9</td><td>15</td><td>5</td>
-              <td class="totcol"></td>
-              <td>14</td><td>8</td><td>10</td><td>6</td><td>18</td><td>12</td><td>13</td><td>6</td><td>4</td>
-              <td class="totcol"></td>
-              <td class="totcol"></td>
-              <td class="totcol"></td>
-              <td class="totcol"></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="cal__buttons">
+        <button id="calReset" class="btn">Reset</button>
+        <button id="calFinish" class="btn btn--primary" disabled>Finish</button>
       </div>
 
-      <div class="footer-fields">
-        <div class="field"><span>Date:</span><div class="line"></div></div>
-        <div class="field"><span>Scorer:</span><div class="line"></div></div>
-        <div class="field"><span>Attest:</span><div class="line"></div></div>
-      </div>
+      <textarea id="calOut" class="cal__out" readonly></textarea>
     </section>
   </main>
 
-  <footer class="hint">
-    Tip: After tapping <b>Save Image</b>, use Share → <b>Save Image</b> (Photos).
+  <footer class="controller">
+    <div class="sel">
+      <span id="selLabel">Tap a box to start</span>
+      <span id="selValue"></span>
+    </div>
+
+    <div class="keys">
+      <button class="key" data-set="3">3</button>
+      <button class="key" data-set="4">4</button>
+      <button class="key" data-set="5">5</button>
+      <button class="key" data-set="6">6</button>
+      <button class="key" data-set="7">7</button>
+      <button class="key" data-set="8">8</button>
+      <button class="key" data-set="9">9</button>
+      <button class="key" data-op="-">−</button>
+      <button class="key" data-op="+">+</button>
+      <button class="key key--ghost" data-op="clear">Clear</button>
+      <button class="key key--ghost" id="backBtn">Back</button>
+      <button class="key key--primary" id="nextBtn">Next</button>
+    </div>
+
+    <div class="tip">Save → Share → <b>Save Image</b> (Photos)</div>
   </footer>
 
   <script src="app.js"></script>
