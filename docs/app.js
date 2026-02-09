@@ -321,6 +321,33 @@ canvas.addEventListener("click",(e)=>{
 });
 
 calFinish.addEventListener("click",()=>{
+  if(pts.rowY.length !== PLAYERS) return;
+  if(pts.bounds.length < COLS.length-1) return;
+
+  const bounds = [...pts.bounds].sort((a,b)=>a-b);
+  const edges = [pts.startX, ...bounds, pts.x1];
+
+  const colW=[], colG=[];
+  for(let i=0;i<COLS.length;i++){
+    colW.push(Math.max(1, edges[i+1]-edges[i]));
+    colG.push(0);
+  }
+
+  cal = {
+    startX: pts.startX,
+    startY: pts.startY,
+    rowY: pts.rowY,   // NEW
+    rowH: pts.rowH,
+    colW,
+    colG
+  };
+
+  saveCal();
+  computeBoxes();
+  closeCal();
+  setSelected(null);
+  draw();
+});
   if(pts.bounds.length < COLS.length-1) return;
 
   const bounds = [...pts.bounds].sort((a,b)=>a-b);
