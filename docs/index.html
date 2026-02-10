@@ -10,19 +10,18 @@
   <header class="topbar">
     <div>
       <div class="title">Scorecard</div>
-      <div class="subtitle">18 holes • 6 players • tap-to-score</div>
+      <div class="subtitle">18 holes • 5 players • tap-to-score</div>
     </div>
     <div class="actions">
       <button id="calBtn" class="btn btn--ghost">Calibrate</button>
+      <button id="resetBtn" class="btn btn--ghost">Reset</button>
       <button id="saveBtn" class="btn btn--primary">Save Image</button>
     </div>
   </header>
 
   <main class="wrap">
     <section class="card">
-      <div class="stage">
-        <canvas id="board"></canvas>
-      </div>
+      <canvas id="board"></canvas>
     </section>
 
     <section id="calPanel" class="cal hidden">
@@ -35,16 +34,18 @@
       </div>
 
       <ol class="cal__steps">
-        <li>Tap <b>Top-Left</b> of Player 1 / Hole 1 box.</li>
-        <li>Tap <b>Top-Left</b> of Player 2 / Hole 1 box.</li>
-        <li>Tap <b>Top-Right</b> of Player 1 / NET box (far right).</li>
-        <li>Tap <b>Bottom-Left</b> of Player 6 / Hole 1 box.</li>
-        <li>Now tap the <b>vertical boundaries</b> between columns along the top score row:
-          after Hole 1, after Hole 2, … after NET (22 boundaries total).</li>
+        <li>Tap TOP-LEFT of <b>Player 1 / Hole 1</b> box.</li>
+        <li>Tap TOP-LEFT of <b>Player 2 / Hole 1</b> box.</li>
+        <li>Tap TOP-LEFT of <b>Player 3 / Hole 1</b> box.</li>
+        <li>Tap TOP-LEFT of <b>Player 4 / Hole 1</b> box.</li>
+        <li>Tap TOP-LEFT of <b>Player 5 / Hole 1</b> box (below Handicap row).</li>
+        <li>Tap BOTTOM-LEFT of <b>Player 1 / Hole 1</b> box (row height).</li>
+        <li>Tap TOP-RIGHT of <b>Player 1 / NET</b> box (far right).</li>
+        <li>Tap the vertical boundaries between columns across top row (22 taps).</li>
       </ol>
 
       <div class="cal__buttons">
-        <button id="calReset" class="btn">Reset</button>
+        <button id="calReset" class="btn">Reset Calibration</button>
         <button id="calFinish" class="btn btn--primary" disabled>Finish</button>
       </div>
 
