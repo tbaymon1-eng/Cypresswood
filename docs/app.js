@@ -1,6 +1,6 @@
 const PLAYERS = 5;
 
-// Column order on the card
+// Column order (matches card)
 const COLS = [
   ...Array.from({ length: 9 }, (_, i) => String(i + 1)),
   "OUT",
@@ -11,13 +11,15 @@ const COLS = [
   "NET",
 ];
 
-const LS_CAL = "cw_board_cal_v2";
-const LS_SCORES = "cw_board_scores_v2";
+const LS_CAL = "cw_cal_v3";
+const LS_SCORES = "cw_scores_v3";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
 const saveBtn = document.getElementById("saveBtn");
+const resetBtn = document.getElementById("resetBtn");
+
 const calBtn = document.getElementById("calBtn");
 const calPanel = document.getElementById("calPanel");
 const calClose = document.getElementById("calClose");
@@ -34,32 +36,29 @@ const backBtn = document.getElementById("backBtn");
 const bg = new Image();
 bg.src = "scorecard.jpg";
 
-function cellKey(p, col) {
-  if (col === "OUT") return `p${p}_out`;
-  if (col === "IN") return `p${p}_in`;
-  if (col === "TOT") return `p${p}_tot`;
-  if (col === "HCP") return `p${p}_hcp`;
-  if (col === "NET") return `p${p}_net`;
-  return `p${p}_h${parseInt(col, 10)}`;
+function cellKey(p, col){
+  if(col==="OUT") return `p${p}_out`;
+  if(col==="IN")  return `p${p}_in`;
+  if(col==="TOT") return `p${p}_tot`;
+  if(col==="HCP") return `p${p}_hcp`;
+  if(col==="NET") return `p${p}_net`;
+  return `p${p}_h${parseInt(col,10)}`;
 }
 
 let scores = loadScores();
-let cal = loadCal();   // {startX,startY,rowH,rowGap,colW[],colG[]}
-let boxes = [];        // computed in canvas px
-let selected = null;   // {p, idx, col}
+let cal = loadCal();      // {startX,startY,rowY[],rowH,colW[],colG[]}
+let boxes = [];
+let selected = null;
 
 function loadScores(){
-  try{
-    const raw = localStorage.getItem(LS_SCORES);
-    if(raw) return JSON.parse(raw);
-  }catch{}
+  try{ const raw = localStorage.getItem(LS_SCORES); if(raw) return JSON.parse(raw); }catch{}
   const obj = {};
   for(let p=1;p<=PLAYERS;p++){
     for(let h=1;h<=18;h++) obj[`p${p}_h${h}`] = "";
     obj[`p${p}_hcp`] = "";
     obj[`p${p}_net`] = "";
     obj[`p${p}_out`] = "";
-    obj[`p${p}_in`] = "";
+    obj[`p${p}_in`]  = "";
     obj[`p${p}_tot`] = "";
   }
   return obj;
@@ -67,10 +66,7 @@ function loadScores(){
 function saveScores(){ localStorage.setItem(LS_SCORES, JSON.stringify(scores)); }
 
 function loadCal(){
-  try{
-    const raw = localStorage.getItem(LS_CAL);
-    if(raw) return JSON.parse(raw);
-  }catch{}
+  try{ const raw = localStorage.getItem(LS_CAL); if(raw) return JSON.parse(raw); }catch{}
   return null;
 }
 function saveCal(){ localStorage.setItem(LS_CAL, JSON.stringify(cal)); }
@@ -92,7 +88,7 @@ function recalcTotals(){
   }
 }
 
-function fitCanvasToImage(){
+function fitCanvas(){
   canvas.width  = bg.naturalWidth  || 1600;
   canvas.height = bg.naturalHeight || 900;
 }
@@ -101,7 +97,6 @@ function computeBoxes(){
   boxes = [];
   if(!cal) return;
 
-  // Precompute X positions for uneven columns
   const xPos = [];
   let x = cal.startX;
   for(let i=0;i<COLS.length;i++){
@@ -109,25 +104,8 @@ function computeBoxes(){
     x += cal.colW[i] + cal.colG[i];
   }
 
-  // Use explicit row Y positions (Player 5 is separated)
-  for(let p=1; p<=PLAYERS; p++){
-    const top = cal.rowY[p-1];   // ← KEY CHANGE
-    for(let i=0;i<COLS.length;i++){
-      boxes.push({
-        p,
-        idx: i,
-        col: COLS[i],
-        x: xPos[i],
-        y: top,
-        w: cal.colW[i],
-        h: cal.rowH
-      });
-    }
-  }
-}
-
   for(let p=1;p<=PLAYERS;p++){
-    const top = cal.startY + (p-1)*(cal.rowH + cal.rowGap);
+    const top = cal.rowY[p-1]; // explicit row positions (Player 5 break supported)
     for(let i=0;i<COLS.length;i++){
       boxes.push({ p, idx:i, col:COLS[i], x:xPos[i], y:top, w:cal.colW[i], h:cal.rowH });
     }
@@ -143,16 +121,16 @@ function findBoxAt(px,py){
 
 function draw(){
   if(!bg.complete) return;
-  fitCanvasToImage();
+  fitCanvas();
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(bg,0,0,canvas.width,canvas.height);
 
   if(!cal){
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,.9)";
-    ctx.font = "800 28px -apple-system, system-ui, Segoe UI, Roboto, Arial";
-    ctx.fillText("Tap Calibrate to map the score boxes.", 40, 60);
+    ctx.fillStyle="rgba(255,255,255,.9)";
+    ctx.font="800 28px -apple-system,system-ui,Segoe UI,Roboto,Arial";
+    ctx.fillText("Tap Calibrate to map the boxes.", 40, 60);
     ctx.restore();
     return;
   }
@@ -164,14 +142,14 @@ function draw(){
   ctx.textAlign="center";
   ctx.textBaseline="middle";
   ctx.fillStyle="#0b0f14";
+
   for(const b of boxes){
     const val = scores[cellKey(b.p,b.col)] ?? "";
     if(!val) continue;
-
-    const small = (b.col==="OUT"||b.col==="IN"||b.col==="TOT"||b.col==="HCP"||b.col==="NET");
+    const small = ["OUT","IN","TOT","HCP","NET"].includes(b.col);
     ctx.font = small
-      ? "900 28px -apple-system, system-ui, Segoe UI, Roboto, Arial"
-      : "900 32px -apple-system, system-ui, Segoe UI, Roboto, Arial";
+      ? "900 28px -apple-system,system-ui,Segoe UI,Roboto,Arial"
+      : "900 32px -apple-system,system-ui,Segoe UI,Roboto,Arial";
     ctx.fillText(val, b.x+b.w/2, b.y+b.h/2);
   }
   ctx.restore();
@@ -206,97 +184,45 @@ function moveSelection(delta){
   if(!selected) return;
   let idx = selected.idx + delta;
   let p = selected.p;
-  if(idx < 0){ idx = COLS.length-1; p = Math.max(1,p-1); }
-  if(idx >= COLS.length){ idx = 0; p = Math.min(PLAYERS,p+1); }
+  if(idx<0){ idx=COLS.length-1; p=Math.max(1,p-1); }
+  if(idx>=COLS.length){ idx=0; p=Math.min(PLAYERS,p+1); }
   const b = boxes.find(z=>z.p===p && z.idx===idx);
   if(b) setSelected(b);
 }
 
 function applySet(n){
   if(!selected) return;
-  if(["OUT","IN","TOT"].includes(selected.col)) return; // totals locked
-  const k = cellKey(selected.p, selected.col);
-  scores[k] = String(n);
+  if(["OUT","IN","TOT"].includes(selected.col)) return;
+  scores[cellKey(selected.p, selected.col)] = String(n);
   saveScores();
   setSelected(boxes.find(z=>z.p===selected.p && z.idx===selected.idx));
 }
-
 function applyOp(op){
   if(!selected) return;
   if(["OUT","IN","TOT"].includes(selected.col)) return;
   const k = cellKey(selected.p, selected.col);
-
   if(op==="clear"){ scores[k]=""; saveScores(); setSelected(boxes.find(z=>z.p===selected.p && z.idx===selected.idx)); return; }
-
   const cur = parseInt(scores[k]||"0",10);
-  const next = (op==="+") ? cur+1 : Math.max(0,cur-1);
-  scores[k] = String(next);
+  scores[k] = String(op==="+" ? cur+1 : Math.max(0,cur-1));
   saveScores();
   setSelected(boxes.find(z=>z.p===selected.p && z.idx===selected.idx));
 }
 
-// Tap board
-canvas.addEventListener("click",(e)=>{
-  if(!calMode) return;
-
+// Use pointerdown for better mobile reliability
+function canvasPointFromEvent(e){
   const r = canvas.getBoundingClientRect();
-  const px = (e.clientX-r.left)*(canvas.width/r.width);
-  const py = (e.clientY-r.top)*(canvas.height/r.height);
+  const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+  const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY);
+  const px = (clientX - r.left) * (canvas.width / r.width);
+  const py = (clientY - r.top)  * (canvas.height / r.height);
+  return {px,py};
+}
 
-  if(step === 0){
-    pts.startX = px;
-    pts.startY = py;
-    pts.rowY.push(py);
-    step = 1;
-    hint("Tap Player 2 / Hole 1 TOP-LEFT.");
-  }
-  else if(step === 1){
-    pts.rowY.push(py);
-    step = 2;
-    hint("Tap Player 3 / Hole 1 TOP-LEFT.");
-  }
-  else if(step === 2){
-    pts.rowY.push(py);
-    step = 3;
-    hint("Tap Player 4 / Hole 1 TOP-LEFT.");
-  }
-  else if(step === 3){
-    pts.rowY.push(py);
-    step = 4;
-    hint("Tap Player 5 / Hole 1 TOP-LEFT (below Handicap row).");
-  }
-  else if(step === 4){
-    pts.rowY.push(py);
-    step = 5;
-    hint("Tap Player 1 / Hole 1 BOTTOM-LEFT (to set row height).");
-  }
-  else if(step === 5){
-    pts.rowH = Math.max(1, py - pts.startY);
-    step = 6;
-    hint("Tap Player 1 / NET TOP-RIGHT (far right).");
-  }
-  else if(step === 6){
-    pts.x1 = px;
-    step = 7;
-    hint("Now tap vertical boundaries between columns (22 taps total).");
-  }
-  else {
-    pts.bounds.push(px);
-    if(pts.bounds.length >= COLS.length - 1){
-      calFinish.disabled=false;
-      hint("All boundaries captured. Tap Finish.");
-    } else {
-      hint(`Boundary ${pts.bounds.length}/${COLS.length-1} captured. Keep going.`);
-    }
-  }
-
-  calOut.value = JSON.stringify({step, pts}, null, 2);
-});
-  if(calMode) return; // calibration handler below
+// -------- Gameplay tap (disabled during calibration) ----------
+canvas.addEventListener("pointerdown",(e)=>{
+  if(calMode) return;
   if(!cal) return;
-  const r = canvas.getBoundingClientRect();
-  const px = (e.clientX-r.left)*(canvas.width/r.width);
-  const py = (e.clientY-r.top)*(canvas.height/r.height);
+  const {px,py} = canvasPointFromEvent(e);
   const b = findBoxAt(px,py);
   if(b) setSelected(b);
 });
@@ -313,62 +239,82 @@ document.querySelectorAll(".key").forEach(btn=>{
 nextBtn.addEventListener("click",()=>moveSelection(+1));
 backBtn.addEventListener("click",()=>moveSelection(-1));
 
-// Save
+// Save Image
 saveBtn.addEventListener("click",()=>{
-  try{
-    draw();
-    const url = canvas.toDataURL("image/png");
-    const w = window.open();
-    if(w) w.document.write(`<img src="${url}" style="width:100%;height:auto;"/>`);
-  }catch{
-    alert("Save failed. Try again.");
-  }
+  draw();
+  const url = canvas.toDataURL("image/png");
+  const w = window.open();
+  if(w) w.document.write(`<img src="${url}" style="width:100%;height:auto;" />`);
 });
 
-// ---------------- Calibration ----------------
+// Full reset (scores + calibration)
+resetBtn.addEventListener("click",()=>{
+  if(!confirm("Reset everything (scores + calibration)?")) return;
+  localStorage.removeItem(LS_SCORES);
+  localStorage.removeItem(LS_CAL);
+  scores = loadScores();
+  cal = null;
+  boxes = [];
+  selected = null;
+  draw();
+});
+
+// ----------------- Calibration -----------------
 let calMode=false;
 let step=0;
-let pts = {
-  startX:0,
-  startY:0,
-  rowY:[],     // NEW
-  rowH:0,
-  x1:0,
-  bounds:[]
-};
+let pts;
 
 function hint(t){ calHint.textContent=t; }
-function resetCal(){
-  step=0; pts={ x0:0,y0:0,y1:0,x1:0,y6:0, bounds:[] };
+
+function resetCalibration(){
+  step=0;
+  pts = { startX:0, startY:0, rowY:[], rowH:0, x1:0, bounds:[] };
   calFinish.disabled=true;
   calOut.value="";
-  hint("Step 1: Tap top-left of Player 1 / Hole 1 box.");
+  hint("Tap TOP-LEFT of Player 1 / Hole 1 box.");
 }
-function openCal(){ calMode=true; calPanel.classList.remove("hidden"); resetCal(); }
+
+function openCal(){ calMode=true; calPanel.classList.remove("hidden"); resetCalibration(); }
 function closeCal(){ calMode=false; calPanel.classList.add("hidden"); }
 
 calBtn.addEventListener("click",openCal);
 calClose.addEventListener("click",closeCal);
-calReset.addEventListener("click",resetCal);
+calReset.addEventListener("click",resetCalibration);
 
-canvas.addEventListener("click",(e)=>{
+canvas.addEventListener("pointerdown",(e)=>{
   if(!calMode) return;
+  const {px,py} = canvasPointFromEvent(e);
 
-  const r = canvas.getBoundingClientRect();
-  const px = (e.clientX-r.left)*(canvas.width/r.width);
-  const py = (e.clientY-r.top)*(canvas.height/r.height);
-
-  if(step===0){ pts.x0=px; pts.y0=py; step=1; hint("Step 2: Tap top-left of Player 2 / Hole 1 box."); }
-  else if(step===1){ pts.y1=py; step=2; hint("Step 3: Tap top-right of Player 1 / NET box (far right)."); }
-  else if(step===2){ pts.x1=px; step=3; hint("Step 4: Tap bottom-left of Player 6 / Hole 1 box."); }
-  else if(step===3){ pts.y6=py; step=4; hint("Step 5: Tap vertical boundaries between columns (22 taps total)."); }
-  else{
+  if(step>=0 && step<=4){
+    if(step===0){ pts.startX=px; pts.startY=py; }
+    pts.rowY.push(py);
+    step++;
+    const msg = [
+      "Tap TOP-LEFT of Player 2 / Hole 1 box.",
+      "Tap TOP-LEFT of Player 3 / Hole 1 box.",
+      "Tap TOP-LEFT of Player 4 / Hole 1 box.",
+      "Tap TOP-LEFT of Player 5 / Hole 1 box (below Handicap row).",
+      "Tap BOTTOM-LEFT of Player 1 / Hole 1 box (row height)."
+    ][step-1];
+    hint(msg);
+  }
+  else if(step===5){
+    pts.rowH = Math.max(1, py - pts.startY);
+    step=6;
+    hint("Tap TOP-RIGHT of Player 1 / NET box (far right).");
+  }
+  else if(step===6){
+    pts.x1 = px;
+    step=7;
+    hint("Now tap vertical boundaries between columns across top row (22 taps).");
+  }
+  else {
     pts.bounds.push(px);
     if(pts.bounds.length >= COLS.length-1){
       calFinish.disabled=false;
       hint("All boundaries captured. Tap Finish.");
     }else{
-      hint(`Captured boundary ${pts.bounds.length}/${COLS.length-1}. Keep going.`);
+      hint(`Boundary ${pts.bounds.length}/${COLS.length-1} captured. Keep going.`);
     }
   }
 
@@ -388,39 +334,7 @@ calFinish.addEventListener("click",()=>{
     colG.push(0);
   }
 
-  cal = {
-    startX: pts.startX,
-    startY: pts.startY,
-    rowY: pts.rowY,   // NEW
-    rowH: pts.rowH,
-    colW,
-    colG
-  };
-
-  saveCal();
-  computeBoxes();
-  closeCal();
-  setSelected(null);
-  draw();
-});
-  if(pts.bounds.length < COLS.length-1) return;
-
-  const bounds = [...pts.bounds].sort((a,b)=>a-b);
-  const edges = [pts.x0, ...bounds, pts.x1];
-
-  const colW=[], colG=[];
-  for(let i=0;i<COLS.length;i++){
-    colW.push(Math.max(1, edges[i+1]-edges[i]));
-    colG.push(0);
-  }
-
-  // Row height & gap from y0 (row1) and y1 (row2) and y6 (row6)
-  const rowStep = Math.max(1, pts.y1 - pts.y0); // rowH + rowGap
-  const totalSpan = Math.max(1, pts.y6 - pts.y0);
-  const rowH = totalSpan / PLAYERS;             // good approximation
-  const rowGap = Math.max(0, rowStep - rowH);   // refine gap
-
-  cal = { startX: pts.x0, startY: pts.y0, rowH, rowGap, colW, colG };
+  cal = { startX: pts.startX, startY: pts.startY, rowY: pts.rowY, rowH: pts.rowH, colW, colG };
   saveCal();
   computeBoxes();
   closeCal();
