@@ -2,81 +2,472 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Scorecard</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Cypresswood Foresight Scorecard</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --paper:#e9e2d4;
+      --ink:#111;
+      --grid:#2b2b2b;
+      --headerRow:#d8d1c3;
+      --parRow:#8a6d3c;
+      --parRowText:#111;
+      --hcpRow:#e7e0cf;
+      --cellBg:#f8f4ea;
+    }
+
+    body{
+      margin:0;
+      font-family: Georgia, 'Times New Roman', serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 10px 10px 24px;
+    }
+
+    .card{
+      background: #efe7d7;
+      border: 3px solid #7a4a0b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(0,0,0,.18);
+      transform: scale(0.92);
+      transform-origin: top center;
+    }
+
+    .header-img{
+      width: 100%;
+      height: auto !important;
+      max-height: 210px;
+      display: block;
+      object-fit: contain !important;
+      object-position: center !important;
+      background: #efe7d7;
+    }
+
+    .table-shell{ background:#efe7d7; padding:0; }
+    .hint{ padding:10px 12px 0; font-size:13px; opacity:.85; }
+
+    .scroll-x{
+      overflow-x:auto;
+      overflow-y:visible;
+      -webkit-overflow-scrolling:touch;
+      border:2px solid #7a4a0b;
+      border-radius:10px;
+      background: rgba(255,255,255,.12);
+      margin-top:10px;
+      width:100%;
+      box-sizing:border-box;
+    }
+
+    table{
+      border-collapse:collapse;
+      min-width:1120px;
+      width:100%;
+    }
+
+    th,td{
+      border:2px solid var(--grid);
+      padding:0;
+      height:34px;
+      background: var(--cellBg);
+    }
+
+    .label{
+      width:140px;
+      font-weight:900;
+      padding:0 10px;
+      text-align:left;
+      background:#e1d8c8;
+      white-space:nowrap;
+      font-family:'Cinzel', serif;
+      letter-spacing:.5px;
+    }
+
+    thead th{
+      position:sticky;
+      top:0;
+      z-index:5;
+      background: var(--headerRow);
+      font-weight:900;
+      height:42px;
+      font-family:'Cinzel', serif;
+      letter-spacing:.5px;
+    }
+
+    .hole{ width:44px; text-align:center; font-weight:900; }
+    .sum{ width:60px; text-align:center; font-weight:900; }
+
+    .yard{ text-align:center; font-weight:900; font-size:16px; }
+
+    /* Tee row colors */
+    .row-blue td{ background:#1f5ea8; color:#fff; }
+    .row-blue .label{ background:#174c89; color:#fff; }
+
+    .row-forest td{ background:#1f4f3b; color:#fff; }
+    .row-forest .label{ background:#163a2b; color:#fff; }
+
+    .row-par td{ background: var(--parRow); color: var(--parRowText); }
+    .row-par .label{ background:#7a5f33; color:#111; }
+
+    .row-hcp td{ background: var(--hcpRow); color:#111; }
+    .row-hcp .label{ background:#d8cfbb; }
+
+    .score-input{
+      width:100%;
+      height:100%;
+      border:0;
+      outline:none;
+      background:transparent;
+      text-align:center;
+      font-weight:900;
+      font-size:18px;
+      color:#111;
+      -webkit-appearance:none;
+      appearance:none;
+      caret-color: transparent;
+    }
+    .score-input:focus{ box-shadow: inset 0 0 0 9999px rgba(0,0,0,.06); }
+
+    .player-name{
+      width:100%;
+      height:100%;
+      border:0;
+      outline:none;
+      background:transparent;
+      font-weight:900;
+      padding:0 10px;
+      font-size:16px;
+    }
+    .player-name:focus{ box-shadow: inset 0 0 0 9999px rgba(0,0,0,.06); }
+
+    .total{
+      text-align:center;
+      font-weight:900;
+      font-size:18px;
+      background:#f1eadb;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+      padding:12px 10px 14px;
+      background:#efe7d7;
+    }
+
+    button{
+      border:2px solid #7a4a0b;
+      background:#e7ddcb;
+      border-radius:10px;
+      padding:12px 10px;
+      font-weight:900;
+      font-size:16px;
+    }
+    button:active{ transform: translateY(1px); }
+
+    .danger{
+      background:#b6422d;
+      color:#fff;
+      border-color:#7a2b20;
+      grid-column: 1 / -1;
+    }
+
+    .book-btn{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:2px solid #7a4a0b;
+      background:#2f6b2f;
+      color:#fff;
+      border-radius:10px;
+      padding:12px 10px;
+      font-weight:900;
+      font-size:16px;
+      text-decoration:none;
+      text-align:center;
+    }
+    .book-btn:active{ transform: translateY(1px); }
+  </style>
 </head>
+
 <body>
-  <header class="topbar">
-    <div>
-      <div class="title">Scorecard</div>
-      <div class="subtitle">18 holes • 5 players • tap-to-score</div>
-    </div>
-    <div class="actions">
-      <button id="calBtn" class="btn btn--ghost">Calibrate</button>
-      <button id="resetBtn" class="btn btn--ghost">Reset</button>
-      <button id="saveBtn" class="btn btn--primary">Save Image</button>
-    </div>
-  </header>
+  <div class="wrap">
+    <div class="card" id="card">
+      <img class="header-img" src="./assets/header.png" alt="Cypresswood Foresight Header" />
 
-  <main class="wrap">
-    <section class="card">
-      <canvas id="board"></canvas>
-    </section>
+      <div class="table-shell">
+        <div class="hint">Swipe left/right. Tap a box to type. Out/In/Tot auto-calc. Scores auto-save on refresh.</div>
 
-    <section id="calPanel" class="cal hidden">
-      <div class="cal__header">
-        <div>
-          <div class="cal__title">Calibration Mode</div>
-          <div id="calHint" class="cal__hint"></div>
+        <div class="scroll-x">
+          <table id="scoreTable">
+            <thead><tr id="hdrRow"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
         </div>
-        <button id="calClose" class="btn btn--ghost">Close</button>
       </div>
 
-      <ol class="cal__steps">
-        <li>Tap TOP-LEFT of <b>Player 1 / Hole 1</b> box.</li>
-        <li>Tap TOP-LEFT of <b>Player 2 / Hole 1</b> box.</li>
-        <li>Tap TOP-LEFT of <b>Player 3 / Hole 1</b> box.</li>
-        <li>Tap TOP-LEFT of <b>Player 4 / Hole 1</b> box.</li>
-        <li>Tap TOP-LEFT of <b>Player 5 / Hole 1</b> box (below Handicap row).</li>
-        <li>Tap BOTTOM-LEFT of <b>Player 1 / Hole 1</b> box (row height).</li>
-        <li>Tap TOP-RIGHT of <b>Player 1 / NET</b> box (far right).</li>
-        <li>Tap the vertical boundaries between columns across top row (22 taps).</li>
-      </ol>
-
-      <div class="cal__buttons">
-        <button id="calReset" class="btn">Reset Calibration</button>
-        <button id="calFinish" class="btn btn--primary" disabled>Finish</button>
+      <div class="actions">
+        <button id="saveImg">Save as Image</button>
+        <a class="book-btn" target="_blank"
+           href="https://foresightcypress.cps.golf/onlineresweb/search-teetime?TeeOffTimeMin=0&TeeOffTimeMax=23.999722222222225">
+          Book Your Next Tee Time Here!
+        </a>
+        <button id="share">Share</button>
+        <button class="danger" id="clear">Clear Card</button>
       </div>
-
-      <textarea id="calOut" class="cal__out" readonly></textarea>
-    </section>
-  </main>
-
-  <footer class="controller">
-    <div class="sel">
-      <span id="selLabel">Tap a box to start</span>
-      <span id="selValue"></span>
     </div>
+  </div>
 
-    <div class="keys">
-      <button class="key" data-set="3">3</button>
-      <button class="key" data-set="4">4</button>
-      <button class="key" data-set="5">5</button>
-      <button class="key" data-set="6">6</button>
-      <button class="key" data-set="7">7</button>
-      <button class="key" data-set="8">8</button>
-      <button class="key" data-set="9">9</button>
-      <button class="key" data-op="-">−</button>
-      <button class="key" data-op="+">+</button>
-      <button class="key key--ghost" data-op="clear">Clear</button>
-      <button class="key key--ghost" id="backBtn">Back</button>
-      <button class="key key--primary" id="nextBtn">Next</button>
-    </div>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    // ====================== DATA (FORESIGHT CARD) ======================
+    const holesFront = [1,2,3,4,5,6,7,8,9];
+    const holesBack  = [10,11,12,13,14,15,16,17,18];
 
-    <div class="tip">Save → Share → <b>Save Image</b> (Photos)</div>
-  </footer>
+    const tees = {
+      blue: {
+        label: "Blue",
+        front: [514,396,387,426,182,417,160,563,427],
+        out: 3472,
+        back:  [416,409,388,349,149,586,193,531,413],
+        inn: 3434,
+        tot: 6906
+      },
+      forest: {
+        label: "Forest",
+        front: [485,335,326,375,155,361,137,527,352],
+        out: 3053,
+        back:  [381,368,354,330,117,546,160,490,379],
+        inn: 3115,
+        tot: 6168
+      }
+    };
 
-  <script src="app.js"></script>
+    const parFront = [5,4,4,4,3,4,3,5,4]; // 36
+    const parBack  = [4,4,4,4,3,5,3,5,4]; // 36
+    const hcpFront = [3,13,11,7,15,9,17,1,5];
+    const hcpBack  = [6,10,12,14,18,2,16,4,8];
+
+    const players = 6;
+    const tbody = document.getElementById("tbody");
+    const STORAGE_KEY = "cypresswood_foresight_scorecard_v1";
+
+    // ====================== HELPERS ======================
+    function sum(arr){ return arr.reduce((a,b)=>a+(Number(b)||0),0); }
+    function yardCell(v){ return `<td class="yard">${v ?? ""}</td>`; }
+
+    // ====================== STORAGE ======================
+    function saveState(){
+      const state = {
+        names: Array.from(document.querySelectorAll(".player-name")).map(i=>i.value||""),
+        scores: Array.from({length:players},(_,p)=>
+          Array.from({length:18},(_,h)=>{
+            const el=document.getElementById(`p${p}_h${h+1}`);
+            return el?el.value:"";
+          })
+        )
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState(){
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      try{
+        const state = JSON.parse(raw);
+        document.querySelectorAll(".player-name")
+          .forEach((el,i)=>el.value = state.names?.[i]||"");
+        state.scores?.forEach((row,p)=>{
+          row.forEach((v,h)=>{
+            const el=document.getElementById(`p${p}_h${h+1}`);
+            if(el) el.value=v;
+          });
+        });
+        for(let i=0;i<players;i++) recalcPlayer(i);
+      }catch(e){}
+    }
+
+    function clearState(){ localStorage.removeItem(STORAGE_KEY); }
+
+    // ====================== BUILD ======================
+    function buildHeader(){
+      const hdr=document.getElementById("hdrRow");
+      hdr.innerHTML=`
+        <th class="label">Hole</th>
+        ${holesFront.map(h=>`<th class="hole">${h}</th>`).join("")}
+        <th class="sum">Out</th>
+        <th class="sum">I<br>N<br>I<br>T</th>
+        ${holesBack.map(h=>`<th class="hole">${h}</th>`).join("")}
+        <th class="sum">In</th>
+        <th class="sum">Tot</th>
+        <th class="sum">Hcp</th>
+        <th class="sum">Net</th>
+      `;
+    }
+
+    function buildYardageRow(key,cls){
+      const t=tees[key];
+      const tr=document.createElement("tr");
+      tr.className=cls;
+      tr.innerHTML=`
+        <td class="label">${t.label}</td>
+        ${t.front.map(n=>yardCell(n)).join("")}
+        ${yardCell(t.out)}${yardCell("")}
+        ${t.back.map(n=>yardCell(n)).join("")}
+        ${yardCell(t.inn)}${yardCell(t.tot)}
+        ${yardCell("")}${yardCell("")}
+      `;
+      return tr;
+    }
+
+    function buildParRow(){
+      const out=sum(parFront), inn=sum(parBack), tot=out+inn;
+      const tr=document.createElement("tr");
+      tr.className="row-par";
+      tr.innerHTML=`
+        <td class="label">Par</td>
+        ${parFront.map(n=>yardCell(n)).join("")}
+        ${yardCell(out)}${yardCell("")}
+        ${parBack.map(n=>yardCell(n)).join("")}
+        ${yardCell(inn)}${yardCell(tot)}
+        ${yardCell("")}${yardCell("")}
+      `;
+      return tr;
+    }
+
+    function buildHcpRow(){
+      const tr=document.createElement("tr");
+      tr.className="row-hcp";
+      tr.innerHTML=`
+        <td class="label">Handicap</td>
+        ${hcpFront.map(n=>yardCell(n)).join("")}
+        ${yardCell("")}${yardCell("")}
+        ${hcpBack.map(n=>yardCell(n)).join("")}
+        ${yardCell("")}${yardCell("")}${yardCell("")}${yardCell("")}
+      `;
+      return tr;
+    }
+
+    function cellInput(p,h){
+      return `<td><input id="p${p}_h${h}" class="score-input" inputmode="numeric" maxlength="2" /></td>`;
+    }
+
+    function buildPlayerRow(i){
+      const tr=document.createElement("tr");
+      tr.innerHTML=`
+        <td class="label"><input class="player-name" placeholder="Player ${i+1}" /></td>
+        ${holesFront.map(h=>cellInput(i,h)).join("")}
+        <td class="total" data-out="${i}">0</td>
+        <td></td>
+        ${holesBack.map(h=>cellInput(i,h)).join("")}
+        <td class="total" data-in="${i}">0</td>
+        <td class="total" data-tot="${i}">0</td>
+        <td></td><td></td>
+      `;
+      return tr;
+    }
+
+    function recalcPlayer(i){
+      let out=0,inn=0;
+      holesFront.forEach(h=>out+=Number(document.getElementById(`p${i}_h${h}`).value||0));
+      holesBack.forEach(h=>inn+=Number(document.getElementById(`p${i}_h${h}`).value||0));
+      document.querySelector(`[data-out="${i}"]`).textContent=out;
+      document.querySelector(`[data-in="${i}"]`).textContent=inn;
+      document.querySelector(`[data-tot="${i}"]`).textContent=out+inn;
+    }
+
+    function wireInputs(){
+      for(let i=0;i<players;i++){
+        for(let h=1;h<=18;h++){
+          const el=document.getElementById(`p${i}_h${h}`);
+          el.addEventListener("input",()=>{
+            el.value=(el.value||"").replace(/[^\d]/g,"").slice(0,2);
+            recalcPlayer(i);
+            saveState();
+          });
+        }
+      }
+      document.querySelectorAll(".player-name")
+        .forEach(el=>el.addEventListener("input",saveState));
+    }
+
+    function build(){
+      tbody.innerHTML="";
+      buildHeader();
+
+      // ONLY top tee rows (no redundant lower data)
+      tbody.appendChild(buildYardageRow("blue","row-blue"));
+      tbody.appendChild(buildYardageRow("forest","row-forest"));
+
+      tbody.appendChild(buildParRow());
+      tbody.appendChild(buildHcpRow());
+
+      for(let i=0;i<players;i++) tbody.appendChild(buildPlayerRow(i));
+
+      wireInputs();
+      loadState();
+    }
+
+    // ====================== SAVE/SHARE ======================
+    async function captureCard(){
+      const card=document.getElementById("card");
+      return html2canvas(card,{scale:2, backgroundColor:null});
+    }
+
+    function wireSaveShare(){
+      const saveBtn=document.getElementById("saveImg");
+      const shareBtn=document.getElementById("share");
+
+      if(saveBtn){
+        saveBtn.addEventListener("click", async ()=>{
+          try{
+            const canvas=await captureCard();
+            const dataUrl=canvas.toDataURL("image/png");
+            const a=document.createElement("a");
+            a.href=dataUrl;
+            a.download="cypresswood-foresight-scorecard.png";
+            a.click();
+          }catch(e){ alert("Save failed."); }
+        });
+      }
+
+      if(shareBtn){
+        shareBtn.addEventListener("click", async ()=>{
+          try{
+            const canvas=await captureCard();
+            const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));
+            const file=new File([blob],"cypresswood-foresight-scorecard.png",{type:"image/png"});
+            if(navigator.canShare && navigator.canShare({files:[file]})){
+              await navigator.share({files:[file], title:"Scorecard"});
+            } else {
+              alert("Sharing not supported here. Try Save as Image.");
+            }
+          }catch(e){ alert("Share failed."); }
+        });
+      }
+    }
+
+    function wireButtons(){
+      document.getElementById("clear").addEventListener("click", ()=>{
+        if(!confirm("Clear all scores?")) return;
+        document.querySelectorAll(".score-input,.player-name").forEach(el=>el.value="");
+        clearState();
+        for(let i=0;i<players;i++) recalcPlayer(i);
+      });
+    }
+
+    // ====================== INIT ======================
+    build();
+    wireButtons();
+    wireSaveShare();
+  </script>
 </body>
 </html>
